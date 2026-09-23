@@ -9,7 +9,7 @@
 
 > **Repository Description**: Comparative monocular lane perception study using classical computer vision, YOLOv8n-seg, and YOLO26n-seg on the TuSimple dataset.
 
-LaneGuard is an applied computer-vision comparative study of monocular lane perception using classical image-processing heuristics and lightweight learned segmentation models. It examines the operational characteristics, localization accuracy, inference latency, and departure-warning behavior of rule-based geometric vision and deep-learning segmentation on highway imagery.
+LaneGuard is an applied computer-vision comparative study / supporting technical project investigating monocular lane perception using classical image-processing heuristics and lightweight learned segmentation models. It examines the operational characteristics, localization accuracy, inference latency, and departure-warning behavior of rule-based geometric vision and deep-learning segmentation on highway imagery.
 
 ---
 
@@ -73,7 +73,7 @@ Generalization performance was separately evaluated on **2,782 evaluation frames
 
 - The evaluation manifest contains 2,782 frames.
 - No overlapping evaluation frames were identified between the training subset and the held-out TuSimple test evaluation.
-- The 2,782 evaluation frames were evaluated individually; they are not treated as independent continuous video streams in this frame-level benchmark.
+- The 2,782 evaluation frames were evaluated frame-by-frame; they are not treated as independent IID samples or continuous video streams in this benchmark.
 
 ---
 
@@ -132,7 +132,7 @@ Implemented in [`laneguard_yolo.ipynb`](laneguard_yolo.ipynb):
 Implemented in [`LaneGuard_YOLO26n_Segmentation.ipynb`](LaneGuard_YOLO26n_Segmentation.ipynb):
 - **Architecture**: Lightweight segmentation model evaluated using the Ultralytics implementation in this study (incorporating C3k2 feature blocks, C2PSA attention, and Segment26 head; 136 fused layers / 309 unfused layers, 2,689,274 fused parameters, 9.1 GFLOPs at $640 \times 640$).
 - **Computational Footprint**: In this configuration, YOLO26n-seg uses approximately 17.5% fewer parameters (569,180 fewer weights) and 19.5% lower reported FLOPs (2.2 GFLOPs lower at $640 \times 640$) compared to YOLOv8n-seg.
-- **Harmonized Evaluation Logic**: Evaluated using the exact same evaluation manifest (`results/evaluation_manifest.csv`), scanline sampling ($y = 680\text{ px}$), single-boundary fallback ($\pm 420\text{ px}$), and LDWS thresholding ($\pm 80\text{ px}$).
+- **Standardized Evaluation Logic**: Evaluated using the exact same evaluation manifest (`results/evaluation_manifest.csv`), scanline sampling ($y = 680\text{ px}$), single-boundary fallback ($\pm 420\text{ px}$), and LDWS thresholding ($\pm 80\text{ px}$).
 
 ---
 
@@ -143,7 +143,8 @@ To maintain transparent evaluation across models, the quantitative assessment us
 1. **Image Coordinate System**:
    - Origin $(0, 0)$ is at the top-left corner of the image.
    - Image width $W = 1280\text{ px}$ ($x \in [0, 1280]$), image height $H = 720\text{ px}$ ($y \in [0, 720]$).
-   - Vehicle center is assumed to correspond to the horizontal midpoint at the bottom edge: $x_{\text{vehicle}} = W / 2 = 640\text{ px}$.
+   - Vehicle center is assumed to correspond to the horizontal midpoint at the bottom edge:
+     $$x_{\text{vehicle}} = \frac{W}{2} = 640\text{ px}$$
 
 2. **Evaluation Scanline ($y = 680\text{ px}$)**:
    - Spatial localization is measured at near-bumper scanline $y = 680\text{ px}$ using a vertical window of $\pm 5\text{ px}$ ($y \in [675, 685]$).
@@ -153,29 +154,29 @@ To maintain transparent evaluation across models, the quantitative assessment us
    - Binary segmentation masks for Class 0 (`lane_line`) are resized to $1280 \times 720$.
    - Positive mask pixels within the scanline window ($y \in [675, 685]$) are partitioned into left candidates ($x < 640$) and right candidates ($x > 640$).
    - If candidate pixels exist, the boundary estimate is the median horizontal coordinate:
-     $$\hat{x}_{\text{left}} = \text{median}(x_{\text{candidate, left}}), \quad \hat{x}_{\text{right}} = \text{median}(x_{\text{candidate, right}})$$
+     $$\hat{x}_{\text{left}} = \operatorname{median}(x_{\text{candidate,left}}), \quad \hat{x}_{\text{right}} = \operatorname{median}(x_{\text{candidate,right}})$$
 
 4. **Ground-Truth Lane Coordinates**:
    - Evaluated directly from the TuSimple polyline annotations at vertical coordinate $h = 680\text{ px}$.
    - Valid coordinates ($x \ge 0$) are partitioned around $x = 640\text{ px}$:
-     $$x_{\text{gt, left}} = \max(x < 640), \quad x_{\text{gt, right}} = \min(x > 640)$$
+     $$x_{\text{gt,left}} = \max(x < 640), \quad x_{\text{gt,right}} = \min(x > 640)$$
    - Ground-truth lane center is defined as the midpoint when both boundaries are present:
-     $$x_{\text{gt, center}} = \frac{x_{\text{gt, left}} + x_{\text{gt, right}}}{2}$$
+     $$x_{\text{gt,center}} = \frac{x_{\text{gt,left}} + x_{\text{gt,right}}}{2}$$
 
 5. **Missing Boundary Handling and Lane Center Estimation**:
    - **Both boundaries detected**: Estimated lane center is the arithmetic mean:
      $$\hat{x}_{\text{center}} = \frac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}$$
    - **Single boundary detected**: A fixed project-level fallback offset of $420\text{ px}$ (half of the nominal $840\text{ px}$ near-bumper lane width) is applied:
-     $$\hat{x}_{\text{center}} = \begin{cases} \hat{x}_{\text{left}} + 420.0\text{ px} & \text{if only left boundary detected} \\ \hat{x}_{\text{right}} - 420.0\text{ px} & \text{if only right boundary detected} \end{cases}$$
+     $$\hat{x}_{\text{center}} = \begin{cases} (\hat{x}_{\text{left}} + \hat{x}_{\text{right}})/2, & \text{if both boundaries are detected} \\ \hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected} \\ \hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected} \end{cases}$$
    - **Neither boundary detected**: Lane center cannot be estimated, and the frame is recorded as a detection failure (`is_failure = True`).
 
 6. **Metric Definitions and Cohorts**:
    - **Lane Boundary MAE / RMSE**: Mean absolute error and root mean square error between predicted and ground-truth boundary coordinates, averaged across all detected boundaries with matching ground truth.
-   - **Lane Center MAE / RMSE / Median AE**: End-to-end geometric lane-center error computed across frames where both estimated lane center $\hat{x}_{\text{center}}$ and ground-truth center $x_{\text{gt, center}}$ are available (2,599 frames for YOLOv8n-seg; 1,957 frames for YOLO26n-seg).
+   - **Lane Center MAE / RMSE / Median AE**: End-to-end geometric lane-center error computed across frames where both estimated lane center $\hat{x}_{\text{center}}$ and ground-truth center $x_{\text{gt,center}}$ are available (2,599 frames for YOLOv8n-seg; 1,957 frames for YOLO26n-seg).
    - **Detection Failure Rate**: Percentage of frames in which neither boundary was detected above the confidence threshold ($0.25$), preventing lane-center estimation.
 
 > [!IMPORTANT]
-> **Pipeline Dependency of Lane-Center Error**: Lane-center error reflects the complete lane-position estimation pipeline, including boundary selection and the fixed single-boundary recovery heuristic; it should therefore not be interpreted as a pure segmentation quality metric. When only one boundary is detected, the static $\pm 420\text{ px}$ assumption can introduce significant geometric error on curves or roads with non-standard lane widths.
+> **Pipeline Dependency of Lane-Center Error**: Lane-center error reflects the complete lane-position estimation pipeline, including boundary selection, near-bumper scanline extraction, single-boundary fallback, and the fixed $\pm 420\text{ px}$ assumption; it should therefore not be interpreted as a pure segmentation quality metric. When only one boundary is detected, the static $\pm 420\text{ px}$ assumption can introduce significant geometric error on curves or roads with non-standard lane widths.
 
 ---
 
@@ -271,7 +272,7 @@ All metrics below represent actual measured values recorded during execution on 
 
 3. **Observed Training Trajectory and Convergence Hypothesis (Panel 4: Bottom-Right)**:
    - In this benchmark, YOLO26n-seg exhibited a higher detection failure rate (29.65% vs 6.58%) and lower dual-boundary recovery rate (16.4% vs 48.6%) on the held-out evaluation set under the fixed 15-epoch budget on 600 training images.
-   - The YOLO26 training losses were still decreasing at epoch 15, indicating that the fixed 15-epoch budget may not have been sufficient for full convergence. The effect of a longer training schedule was not evaluated in this study.
+   - The YOLO26 training losses were still decreasing at epoch 15, indicating that the fixed 15-epoch budget may not have been sufficient for full convergence. The effect of a longer training schedule was not evaluated, so the experiment cannot determine how much of the observed difference is attributable to architecture, training budget, or their interaction.
    - Ongoing loss descent is a plausible hypothesis for the lower boundary detection confidence on ambiguous frames; however, this is an interpretation based on the observed training loss curves rather than an experimentally demonstrated conclusion.
 
 4. **Runtime and Computational Efficiency (Panel 3: Bottom-Left)**:
@@ -291,9 +292,12 @@ To evaluate the computational cost of edge extraction, Hough accumulator voting,
 | **Vehicle Scene with Multiple Markings** (`02_numbered_ground_truth.png`) | 31.81 ms | 25.11 ms | 13.57 ms | 31.4 FPS | Host CPU |
 | **Dense Edge / Surface Clutter** (`06_roi_masked_edges.png`) | 70.70 ms | 68.42 ms | 10.41 ms | 14.1 FPS | Host CPU |
 | **Average of 3 Evaluated Scenes** (200 iterations each) | 42.74 ms | — | — | 23.4 FPS | Host CPU |
-| **Historical Synthetic Blank Frame** (Empty black array) | 10.60 ms | 10.55 ms | 0.45 ms | 94.3 FPS | Host CPU (Bypasses Hough/polyfit) |
 
-> **Comparative Timing Context**: Runtime measurements characterize each pipeline under its reported execution hardware and timing methodology; the CPU and GPU measurements should not be interpreted as a direct hardware-normalized comparison. Classical CV executed on the host CPU, where latency varied by over $2.7\times$ (25.7 ms to 70.7 ms) depending on edge density and texture clutter. Learned neural networks executed on GPU tensor cores with relatively stable measured inference latency across the evaluated frames. Because per-sample timing arrays for these offline runs were not persisted, the summary row reports the unweighted mean latency across the 3 profiled scenes ($42.74\text{ ms}$, corresponding to $23.4\text{ FPS}$); pooled median and pooled standard deviation are omitted to avoid ungrounded approximations.
+> **Comparative Timing Context**: Runtime measurements characterize each pipeline under its reported execution hardware and timing methodology; the CPU and GPU measurements should not be interpreted as a direct hardware-normalized comparison. Classical CV executed on the host CPU, where latency varied by over $2.7\times$ (25.7 ms to 70.7 ms) depending on edge density and texture clutter. Learned neural networks executed on GPU tensor cores with relatively stable measured inference latency across the evaluated frames under the fixed inference configuration. Because per-sample timing arrays for these offline runs were not persisted, the summary row reports the unweighted mean latency across the 3 profiled scenes ($42.74\text{ ms}$, corresponding to $23.4\text{ FPS}$); pooled median and pooled standard deviation are omitted to avoid ungrounded approximations.
+
+#### Historical Synthetic Timing
+
+An earlier benchmark recorded on an empty synthetic frame ($1280 \times 720$ black array) bypassed portions of the classical pipeline when no line candidates were present, yielding $10.60\text{ ms}$ mean latency ($10.55\text{ ms}$ median, $\pm 0.45\text{ ms}$ std, $94.3\text{ FPS}$) on the host CPU. Because an empty frame produces zero Canny edges and bypasses Hough transform accumulator voting and line fitting, this measurement is retained only for historical reproducibility and is not representative of a realistic classical-CV workload.
 
 ---
 
@@ -309,7 +313,7 @@ The perception pipelines were evaluated across representative highway geometries
 
 ### Cross-Pipeline Per-Scene Evaluation Summary
 
-The classical and YOLOv8 pipelines were evaluated across 6 representative highway driving scenes under the shared departure warning threshold ($\pm 80.0\text{ px}$):
+The six-scene quantitative comparison below covers the Classical CV and YOLOv8 pipelines, matching the original per-scene evaluation workflow. YOLO26 qualitative outputs are shown separately in Figure 6. Both pipelines were evaluated under the shared departure warning threshold ($\pm 80.0\text{ px}$):
 
 | Scene | Geometry / Challenge | Classical CV Offset | Classical LDWS ($\pm 80\text{ px}$) | YOLOv8 Offset | YOLOv8 LDWS ($\pm 80\text{ px}$) | Comparative Qualitative Finding |
 | :--- | :--- | :---:| :---:| :---:| :---:| :--- |
@@ -333,18 +337,21 @@ The Lane Departure Warning System (LDWS) is a heuristic implementation operating
    - **Classical CV**: Evaluated at the bottom frame row ($y = 720\text{ px}$) from fitted linear boundaries:
      $$x_{\text{lane\_center}} = \frac{x_{\text{left}}(720) + x_{\text{right}}(720)}{2}$$
    - **Learned Models (YOLOv8-Seg / YOLO26-Seg)**: Evaluated at scanline $y = 680\text{ px}$ from median mask coordinates, with fixed $\pm 420\text{ px}$ fallback when a single boundary is present:
-     $$x_{\text{lane\_center}} = \begin{cases} \frac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2} & \text{if both present} \\ \hat{x}_{\text{left}} + 420.0\text{ px} & \text{if only left present} \\ \hat{x}_{\text{right}} - 420.0\text{ px} & \text{if only right present} \end{cases}$$
+     $$x_{\text{lane\_center}} = \begin{cases} (\hat{x}_{\text{left}} + \hat{x}_{\text{right}})/2, & \text{if both boundaries are detected} \\ \hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected} \\ \hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected} \end{cases}$$
 
 3. **Lateral Offset**:
    $$\Delta x = x_{\text{vehicle}} - x_{\text{lane\_center}}$$
 
-4. **Harmonized Warning Logic**:
+4. **Common LDWS Decision Threshold**:
    - A single shared heuristic threshold of $\pm 80.0\text{ px}$ ($0.0625 \cdot W$) is applied:
      - $\Delta x > +80\text{ px}$: `WARNING: DRIFTING LEFT`
      - $\Delta x < -80\text{ px}$: `WARNING: DRIFTING RIGHT`
      - $|\Delta x| \le 80\text{ px}$: `CENTERED` / `LANE CENTERED`
 
-> **Note on the Warning Threshold**: The $\pm 80\text{ px}$ threshold is a project-specific pixel-space heuristic. It depends on camera mounting height, pitch, lens field-of-view, and image resolution ($1280 \times 720$). It is not an automotive safety standard (such as ISO 17361, which evaluates metric distance and time-to-line-crossing) and carries no safety certification.
+> [!NOTE]
+> **Spatial Extraction Distinction**: The pipelines use the same $\pm 80\text{ px}$ warning threshold, but their lane-center extraction locations differ: the classical implementation evaluates its fitted boundaries at $y = 720\text{ px}$, whereas the learned pipelines use the standardized evaluation scanline at $y = 680\text{ px}$. Therefore, the warning states should be interpreted as comparable heuristic outputs rather than perfectly spatially matched measurements.
+> 
+> Furthermore, the $\pm 80\text{ px}$ threshold is a project-specific pixel-space heuristic. It depends on camera mounting height, pitch, lens field-of-view, and image resolution ($1280 \times 720$). It is not an automotive safety standard (such as ISO 17361, which evaluates metric distance and time-to-line-crossing) and carries no safety certification.
 
 ---
 
