@@ -112,7 +112,7 @@ Implemented in [`laneguard_yolo.ipynb`](laneguard_yolo.ipynb), this pipeline app
    - Segmented masks are resized back to $1280 \times 720$.
    - Left and right boundary assignment is performed during post-processing: Class 0 mask pixels in the near-bumper region ($y > 0.70 \cdot H$) are partitioned relative to the vehicle horizontal center ($x_{\text{veh}} = W / 2 = 640\text{ px}$).
    - The lane center is estimated from the median horizontal positions of these pixels:
-     $$x_{\text{lane\_center}} = \frac{\text{median}(x_{\text{left\_pts}}) + \text{median}(x_{\text{right\_pts}})}{2}$$
+     $$x_{\text{lane center}} = \frac{\text{median}(x_{\text{left}}) + \text{median}(x_{\text{right}})}{2}$$
    - If only one boundary produces mask pixels, a fixed half-width offset heuristic ($420\text{ px}$) is applied ($x_{\text{left}} + 420$ or $x_{\text{right}} - 420$).
 
 ---
@@ -208,11 +208,11 @@ The Lane Departure Warning System (LDWS) is a heuristic implementation operating
    $$x_{\text{vehicle}} = \frac{W}{2} = 640\text{ px}$$
 2. **Lane Center**:
    - **Classical CV**: Evaluated at the bottom frame row ($y = 720\text{ px}$) from the fitted boundary lines:
-     $$x_{\text{lane\_center}} = \frac{x_{\text{left}}(720) + x_{\text{right}}(720)}{2}$$
+     $$x_{\text{lane center}} = \frac{x_{\text{left}}(720) + x_{\text{right}}(720)}{2}$$
    - **YOLOv8-Seg**: Evaluated as the midpoint of median horizontal coordinates of Class 0 pixels sampled near the bumper ($y \in [0.70 \cdot H, H]$):
-     $$x_{\text{lane\_center}} = \frac{\text{median}(x_{\text{left\_pts}}) + \text{median}(x_{\text{right\_pts}})}{2}$$
+     $$x_{\text{lane center}} = \frac{\text{median}(x_{\text{left}}) + \text{median}(x_{\text{right}})}{2}$$
 3. **Lateral Offset**:
-   $$\Delta x = x_{\text{vehicle}} - x_{\text{lane\_center}}$$
+   $$\Delta x = x_{\text{vehicle}} - x_{\text{lane center}}$$
 4. **Harmonized Warning Logic**:
    - A single shared heuristic threshold of $\pm 80.0\text{ px}$ ($0.0625 \cdot W$) is applied:
      - $\Delta x > +80\text{ px}$: `WARNING: DRIFTING LEFT`
