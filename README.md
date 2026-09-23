@@ -37,7 +37,7 @@ TuSimple sequences consist of forward-facing camera video clips (1280 × 720 res
 
 Ground-truth lane markings in TuSimple are annotated as polylines defined across predefined vertical scanlines:
 - `h_samples`: Discrete vertical pixel coordinates (`y ∈ [160, 710]` at `10 px` intervals).
-- `lanes`: Horizontal pixel coordinates ($x$) corresponding to each height, where `-2` denotes an unannotated or occluded scanline.
+- `lanes`: Horizontal pixel coordinates `x` corresponding to each height, where `-2` denotes an unannotated or occluded scanline.
 
 ---
 
@@ -46,7 +46,7 @@ Ground-truth lane markings in TuSimple are annotated as polylines defined across
 TuSimple supplies lane polylines rather than semantic or instance segmentation masks. Training masks for the learned pipeline were generated programmatically from these polyline coordinates:
 
 1. **Lane Line Ribbons (`lane_line`)**:
-   - Discrete $(x, y)$ polyline points for each annotated lane were dilated horizontally by `±6 px` (`thickness=6`) to form closed ribbon polygons.
+   - Discrete `(x, y)` polyline points for each annotated lane were dilated horizontally by `±6 px` (`thickness=6`) to form closed ribbon polygons.
    - Coordinates were normalized to `[0, 1]` for the YOLO segmentation format.
 2. **Derived Corridor Masks (`drivable_area`)**:
    - The two innermost lane boundaries closest to the horizontal center of the frame (`x = 640 px`) were identified.
@@ -90,12 +90,12 @@ Implemented in [`laneguard.ipynb`](laneguard.ipynb), the classical pipeline reli
    - A bitwise OR combines the masks to preserve marking pixels under daylight contrast.
 2. **Gaussian Smoothing and Canny Edge Detection**:
    - Grayscale conversion followed by a `5 × 5` Gaussian blur kernel.
-   - Canny edge detection with hysteresis thresholds $T_{\text{low}} = 50$, $T_{\text{high}} = 150$.
+   - Canny edge detection with hysteresis thresholds `T_low = 50`, `T_high = 150`.
    - Combined with the HLS mask via bitwise OR.
 3. **Trapezoidal Region of Interest (ROI)**:
    - Masks the upper visual field on `1280 × 720` frames:
-     - Bottom vertices: $(0, 720)$ and $(1280, 720)$
-     - Top vertices: $(768, 360)$ and $(512, 360)$
+     - Bottom vertices: (0, 720) and (1280, 720)
+     - Top vertices: (768, 360) and (512, 360)
 4. **Probabilistic Hough Transform**:
    - Line segment detection using `cv2.HoughLinesP` (`ρ = 1 px`, `θ = π / 180`, accumulator threshold `= 35`, minimum line length `= 30 px`, maximum line gap `= 80 px`).
 5. **Slope Partitioning and Outlier Filtering**:
@@ -141,16 +141,13 @@ Implemented in [`LaneGuard_YOLO26n_Segmentation.ipynb`](LaneGuard_YOLO26n_Segmen
 To maintain transparent evaluation across models, the quantitative assessment uses a standardized geometric measurement pipeline:
 
 1. **Image Coordinate System**:
-   - Origin $(0, 0)$ is at the top-left corner of the image.
-   - Image width $W = 1280\text{ px}$ (`x ∈ [0, 1280]`), image height $H = 720\text{ px}$ (`y ∈ [0, 720]`).
+   - Origin (0, 0) is at the top-left corner of the image.
+   - Image width `W = 1280 px` (`x ∈ [0, 1280]`), image height `H = 720 px` (`y ∈ [0, 720]`).
    - Vehicle center is assumed to correspond to the horizontal midpoint at the bottom edge:
-     $$
-     x_{\text{vehicle}}
-     =
-     \frac{W}{2}
-     =
-     640\text{ px}
-     $$
+
+$$
+x_{\text{vehicle}} = \frac{W}{2} = 640\text{ px}
+$$
 
 2. **Evaluation Scanline (`y = 680 px`)**:
    - Spatial localization is measured at near-bumper scanline `y = 680 px` using a vertical window of `±5 px` (`y ∈ [675, 685]`).
@@ -158,66 +155,45 @@ To maintain transparent evaluation across models, the quantitative assessment us
 
 3. **Predicted Lane Boundary Extraction**:
    - Binary segmentation masks for Class 0 (`lane_line`) are resized to `1280 × 720`.
-   - Positive mask pixels within the scanline window (`y ∈ [675, 685]`) are partitioned into left candidates ($x < 640$) and right candidates ($x > 640$).
+   - Positive mask pixels within the scanline window (`y ∈ [675, 685]`) are partitioned into left candidates (`x < 640`) and right candidates (`x > 640`).
    - If candidate pixels exist, the boundary estimates are the median horizontal coordinates:
-     $$
-     \hat{x}_{\text{left}}
-     =
-     \operatorname{median}(x_{\text{candidate,left}}),
-     \qquad
-     \hat{x}_{\text{right}}
-     =
-     \operatorname{median}(x_{\text{candidate,right}})
-     $$
+
+$$
+\hat{x}_{\text{left}} = \operatorname{median}(x_{\text{candidate,left}}), \qquad \hat{x}_{\text{right}} = \operatorname{median}(x_{\text{candidate,right}})
+$$
 
 4. **Ground-Truth Lane Coordinates**:
    - Evaluated directly from the TuSimple polyline annotations at vertical coordinate `h = 680 px`.
-   - Valid coordinates ($x \ge 0$) are partitioned around $x = 640$:
-     $$
-     x_{\text{gt,left}}
-     =
-     \max\{x < 640\},
-     \qquad
-     x_{\text{gt,right}}
-     =
-     \min\{x > 640\}
-     $$
+   - Valid coordinates (`x ≥ 0`) are partitioned around `x = 640`:
+
+$$
+x_{\text{gt,left}} = \max\{x < 640\}, \qquad x_{\text{gt,right}} = \min\{x > 640\}
+$$
+
    - Ground-truth lane center is defined as the midpoint when both boundaries are present:
-     $$
-     x_{\text{gt,center}}
-     =
-     \frac{
-     x_{\text{gt,left}} + x_{\text{gt,right}}
-     }{2}
-     $$
+
+$$
+x_{\text{gt,center}} = \frac{x_{\text{gt,left}} + x_{\text{gt,right}}}{2}
+$$
 
 5. **Missing Boundary Handling and Lane Center Estimation**:
    - **Both boundaries detected**: Estimated lane center is the arithmetic mean:
-     $$
-     \hat{x}_{\text{center}}
-     =
-     \frac{
-     \hat{x}_{\text{left}} + \hat{x}_{\text{right}}
-     }{2}
-     $$
+
+$$
+\hat{x}_{\text{center}} = \frac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}
+$$
+
    - **Single boundary detected**: A fixed project-level fallback offset of `420 px` (half of the nominal `840 px` near-bumper lane width) is applied:
-     $$
-     \hat{x}_{\text{center}}
-     =
-     \begin{cases}
-     \dfrac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2},
-     & \text{if both boundaries are detected}, \\[6pt]
-     \hat{x}_{\text{left}} + 420,
-     & \text{if only the left boundary is detected}, \\[6pt]
-     \hat{x}_{\text{right}} - 420,
-     & \text{if only the right boundary is detected}.
-     \end{cases}
-     $$
+
+$$
+\hat{x}_{\text{center}} = \begin{cases} \dfrac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}, & \text{if both boundaries are detected}, \\[6pt] \hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected}, \\[6pt] \hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected}. \end{cases}
+$$
+
    - **Neither boundary detected**: Lane center cannot be estimated, and the frame is recorded as a detection failure (`is_failure = True`).
 
 6. **Metric Definitions and Cohorts**:
    - **Lane Boundary MAE / RMSE**: Mean absolute error and root mean square error between predicted and ground-truth boundary coordinates, averaged across all detected boundaries with matching ground truth.
-   - **Lane Center MAE / RMSE / Median AE**: End-to-end geometric lane-center error computed across frames where both estimated lane center $\hat{x}_{\text{center}}$ and ground-truth center $x_{\text{gt,center}}$ are available (2,599 frames for YOLOv8n-seg; 1,957 frames for YOLO26n-seg).
+   - **Lane Center MAE / RMSE / Median AE**: End-to-end geometric lane-center error computed across frames where both estimated lane center and ground-truth center are available (2,599 frames for YOLOv8n-seg; 1,957 frames for YOLO26n-seg).
    - **Detection Failure Rate**: Percentage of frames in which neither boundary was detected above the confidence threshold (`0.25`), preventing lane-center estimation.
 
 > [!IMPORTANT]
@@ -233,7 +209,7 @@ To maintain transparent evaluation across models, the quantitative assessment us
 | **Model Weights** | Algorithmic (OpenCV 4.x) | `yolov8n-seg.pt` (3.26M params, 6.8 MB) | `yolo26n-seg.pt` (2.69M params, 6.5 MB) |
 | **Detection Head** | Deterministic grouping | Standard Decoupled NMS Head | Native End-to-End Head |
 | **Training Budget** | None (Rule-based) | 15 epochs, batch 16, 600 frames | 15 epochs, batch 16, 600 frames |
-| **Input Resolution** | `1280 × 720` | `640 × 640` (network) $\rightarrow$ `1280 × 720` (HUD) | `640 × 640` (network) $\rightarrow$ `1280 × 720` (HUD) |
+| **Input Resolution** | `1280 × 720` | `640 × 640` (network) → `1280 × 720` (HUD) | `640 × 640` (network) → `1280 × 720` (HUD) |
 | **Evaluation Platform** | Host CPU | NVIDIA Tesla T4 GPU (16 GB VRAM) | NVIDIA Tesla T4 GPU (16 GB VRAM) |
 | **Timing Metric** | Wall-clock `time.perf_counter()` | Synchronized CUDA Timing (`torch.cuda.synchronize()`) | Synchronized CUDA Timing (`torch.cuda.synchronize()`) |
 | **Evaluation Cohort** | Qualitative inspection on 6 representative frames | Quantitative evaluation on 2,782 held-out TuSimple test frames | Quantitative evaluation on 2,782 held-out TuSimple test frames |
@@ -311,8 +287,8 @@ All metrics below represent actual measured values recorded during execution on 
 2. **Lane Center Error and Heuristic Dependency (Panel 2: Top-Right)**:
    - For lane-center estimation, YOLOv8n-seg recorded a median absolute error of `10.50 px` (mean `37.62 px`), whereas YOLO26n-seg recorded a median absolute error of `87.50 px` (mean `70.06 px`).
    - This difference is directly linked to boundary detection completeness rather than boundary-level spatial accuracy:
-     - YOLOv8n-seg detected both lane boundaries in 48.6% of frames (1,351 frames), enabling direct center calculation via bilateral averaging ($\hat{x}_{\text{center}} = (\hat{x}_{\text{left}} + \hat{x}_{\text{right}})/2$).
-     - YOLO26n-seg detected both boundaries in 16.4% of frames (457 frames) and triggered the single-boundary fallback heuristic ($\hat{x}_{\text{left}} + 420\text{ px}$ or $\hat{x}_{\text{right}} - 420\text{ px}$) in 53.9% of frames (1,500 frames).
+     - YOLOv8n-seg detected both lane boundaries in 48.6% of frames (1,351 frames), enabling direct center calculation via bilateral averaging (`(x̂_left + x̂_right)/2`).
+     - YOLO26n-seg detected both boundaries in 16.4% of frames (457 frames) and triggered the single-boundary fallback heuristic (`x̂_left + 420 px` or `x̂_right - 420 px`) in 53.9% of frames (1,500 frames).
    - On curving road sections or non-standard lane widths, assuming a fixed `420 px` half-width introduces systematic lateral error. Because lane-center error depends on this recovery logic, it reflects the complete heuristic pipeline rather than segmentation quality alone.
 
 3. **Observed Training Trajectory and Convergence Hypothesis (Panel 4: Bottom-Right)**:
@@ -375,61 +351,37 @@ The six-scene quantitative comparison below covers the Classical CV and YOLOv8 p
 
 The Lane Departure Warning System (LDWS) is a heuristic implementation operating in image pixel space:
 
-1. **Vehicle Center**: Assumed to correspond to the horizontal midpoint at the bottom edge of the image:
-   $$
-   x_{\text{vehicle}}
-   =
-   \frac{W}{2}
-   =
-   640\text{ px}
-   $$
+1. **Vehicle Center**:
+   Assumed to correspond to the horizontal midpoint at the bottom edge of the image:
+
+$$
+x_{\text{vehicle}} = \frac{W}{2} = 640\text{ px}
+$$
 
 2. **Lane Center**:
    - **Classical CV**: Evaluated at the bottom frame row (`y = 720 px`) from fitted linear boundaries:
-     $$
-     x_{\text{lane center}}
-     =
-     \frac{
-     x_{\text{left}}(720) + x_{\text{right}}(720)
-     }{2}
-     $$
+
+$$
+x_{\text{lane center}} = \frac{x_{\text{left}}(720) + x_{\text{right}}(720)}{2}
+$$
+
    - **Learned Models (YOLOv8-Seg / YOLO26-Seg)**: Evaluated at scanline `y = 680 px` from median mask coordinates, with fixed `±420 px` fallback when a single boundary is present:
-     $$
-     x_{\text{lane center}}
-     =
-     \begin{cases}
-     \dfrac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2},
-     & \text{if both boundaries are detected}, \\[6pt]
-     \hat{x}_{\text{left}} + 420,
-     & \text{if only the left boundary is detected}, \\[6pt]
-     \hat{x}_{\text{right}} - 420,
-     & \text{if only the right boundary is detected}.
-     \end{cases}
-     $$
+
+$$
+x_{\text{lane center}} = \begin{cases} \dfrac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}, & \text{if both boundaries are detected}, \\[6pt] \hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected}, \\[6pt] \hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected}. \end{cases}
+$$
 
 3. **Lateral Offset**:
-   $$
-   \Delta x
-   =
-   x_{\text{vehicle}}
-   -
-   x_{\text{lane center}}
-   $$
+
+$$
+\Delta x = x_{\text{vehicle}} - x_{\text{lane center}}
+$$
 
 4. **Common LDWS Decision Threshold**:
-   - A single shared heuristic threshold of `±80 px` ($0.0625 \cdot W$) is applied:
-     - `CENTERED` / `LANE CENTERED`:
-       $$
-       |\Delta x| \le 80\text{ px}
-       $$
-     - `WARNING: DRIFTING LEFT`:
-       $$
-       \Delta x > +80\text{ px}
-       $$
-     - `WARNING: DRIFTING RIGHT`:
-       $$
-       \Delta x < -80\text{ px}
-       $$
+   A single shared heuristic threshold of `±80 px` (`0.0625 · W`) is applied:
+   - `CENTERED` / `LANE CENTERED`: $|\Delta x| \le 80\text{ px}$
+   - `WARNING: DRIFTING LEFT`: $\Delta x > +80\text{ px}$
+   - `WARNING: DRIFTING RIGHT`: $\Delta x < -80\text{ px}$
 
 > [!NOTE]
 > **Spatial Extraction Distinction**: The pipelines use the same `±80 px` warning threshold, but their lane-center extraction locations differ: the classical implementation evaluates its fitted boundaries at `y = 720 px`, whereas the learned pipelines use the standardized evaluation scanline at `y = 680 px`. Therefore, the warning states should be interpreted as comparable heuristic outputs rather than perfectly spatially matched measurements.
@@ -533,7 +485,7 @@ Building and benchmarking LaneGuard gave me practical experience in both applied
 
 ## Limitations
 
-1. **Pixel-Space Operation Without Metric Calibration**: All calculations operate in 2D image pixels without camera intrinsic calibration ($K$), extrinsic pose estimation (pitch, roll, mounting height), or Inverse Perspective Mapping (IPM) to Bird's-Eye-View (BEV). Pixel displacements do not scale linearly to physical meters.
+1. **Pixel-Space Operation Without Metric Calibration**: All calculations operate in 2D image pixels without camera intrinsic calibration (K), extrinsic pose estimation (pitch, roll, mounting height), or Inverse Perspective Mapping (IPM) to Bird's-Eye-View (BEV). Pixel displacements do not scale linearly to physical meters.
 2. **Frame-Level Random Split in Validation Experiment**: The 600/150 training-validation split was partitioned using random frame-level shuffling, which may place temporally adjacent frames from the same video clip into both sets. Validation metrics should be interpreted with this limitation in mind.
 3. **Separation of Held-Out Evaluation**: The 2,782 evaluation frames from the official TuSimple test set have no identified frame overlap with the training subset, but they were evaluated frame-by-frame without multi-frame temporal state estimation.
 4. **Pipeline Dependency of Lane-Center Error**: Lane-center error reflects the combined behavior of segmentation, boundary extraction, and the fixed `±420 px` single-boundary fallback heuristic. It should not be interpreted as a segmentation-only metric.
