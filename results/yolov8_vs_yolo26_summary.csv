@@ -1,0 +1,13 @@
+Metric,YOLOv8n-seg,YOLO26n-seg
+Frames Evaluated,2782.0,2782.0
+Clips Evaluated,2782.0,2782.0
+Lane Boundary MAE (px),21.42,22.44
+Lane Boundary RMSE (px),23.39,23.59
+Lane Center MAE (px),37.62,70.06
+Lane Center RMSE (px),57.13,82.66
+Lane Center Median AE (px),10.5,87.5
+Detection Failure Rate (%),6.58,29.65
+Mean Latency (ms),10.95,14.4
+Median Latency (ms),10.81,14.19
+P95 Latency (ms),11.93,15.76
+Throughput (FPS),91.4,69.5
