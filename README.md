@@ -159,7 +159,7 @@ $$
    - If candidate pixels exist, the boundary estimates are the median horizontal coordinates:
 
 $$
-\hat{x}_{\text{left}} = \operatorname{median}(x_{\text{candidate,left}}), \qquad \hat{x}_{\text{right}} = \operatorname{median}(x_{\text{candidate,right}})
+\hat{x}_{\text{left}} = \text{median}(x_{\text{candidate,left}}), \qquad \hat{x}_{\text{right}} = \text{median}(x_{\text{candidate,right}})
 $$
 
 4. **Ground-Truth Lane Coordinates**:
@@ -167,7 +167,7 @@ $$
    - Valid coordinates (`x ≥ 0`) are partitioned around `x = 640`:
 
 $$
-x_{\text{gt,left}} = \max\{x < 640\}, \qquad x_{\text{gt,right}} = \min\{x > 640\}
+x_{\text{gt,left}} = \max(x < 640), \qquad x_{\text{gt,right}} = \min(x > 640)
 $$
 
    - Ground-truth lane center is defined as the midpoint when both boundaries are present:
@@ -186,7 +186,11 @@ $$
    - **Single boundary detected**: A fixed project-level fallback offset of `420 px` (half of the nominal `840 px` near-bumper lane width) is applied:
 
 $$
-\hat{x}_{\text{center}} = \begin{cases} \dfrac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}, & \text{if both boundaries are detected}, \\[6pt] \hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected}, \\[6pt] \hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected}. \end{cases}
+\hat{x}_{\text{center}} = \begin{cases}
+\frac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}, & \text{if both boundaries are detected} \\
+\hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected} \\
+\hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected}
+\end{cases}
 $$
 
    - **Neither boundary detected**: Lane center cannot be estimated, and the frame is recorded as a detection failure (`is_failure = True`).
@@ -368,7 +372,11 @@ $$
    - **Learned Models (YOLOv8-Seg / YOLO26-Seg)**: Evaluated at scanline `y = 680 px` from median mask coordinates, with fixed `±420 px` fallback when a single boundary is present:
 
 $$
-x_{\text{lane center}} = \begin{cases} \dfrac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}, & \text{if both boundaries are detected}, \\[6pt] \hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected}, \\[6pt] \hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected}. \end{cases}
+x_{\text{lane center}} = \begin{cases}
+\frac{\hat{x}_{\text{left}} + \hat{x}_{\text{right}}}{2}, & \text{if both boundaries are detected} \\
+\hat{x}_{\text{left}} + 420, & \text{if only the left boundary is detected} \\
+\hat{x}_{\text{right}} - 420, & \text{if only the right boundary is detected}
+\end{cases}
 $$
 
 3. **Lateral Offset**:
